@@ -1,22 +1,35 @@
 import Rx from 'rx';
 
+function intent() {
+  return {
+    scroll: Rx.Observable.fromEvent(window, 'scroll')
+      .map(ev => window.scrollY)
+      .throttle(32)
+      .startWith(window.scrollY)
+  };
+}
 
-var top = 200
-var bottom = window.innerHeight - 200;
+function model(actions) {
+  var top = 0
+  var bottom = window.innerHeight;
+  return actions.scroll.map(
+    scrollPosition => ({top: top, bottom: bottom, position: scrollPosition})
+  );
+}
 
-var scrollSource = Rx.Observable.fromEvent(window, 'scroll');
+function view(state) {
+  var els = Array.prototype.slice.call(document.querySelectorAll('li'));
+  return state.map(({top, bottom, position}) => {
+    els.forEach(el => {
+      var y = el.offsetTop - position;
+      if (y + el.offsetHeight > top && y < bottom) {
+        el.classList.remove('offscreen');
+      }
+      else {
+        el.classList.add('offscreen');
+      }
+    });
+  });
+}
 
-
-scrollSource
-  .throttle(32)
-  .flatMap(e => document.querySelectorAll('li'))
-  .map(function (el) {
-    var el_top = el.offsetTop - window.scrollY;
-    console.log(el_top);
-    return [el, el_top + el.offsetHeight > top  && el_top < bottom];
-  })
-  .map(x => {
-    var [el, found] = x;
-    found ? el.classList.add('found') : el.classList.remove('found')
-  })
-  .subscribe()
+view(model(intent())).subscribe();
